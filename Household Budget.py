@@ -1,128 +1,175 @@
 import tkinter as tk
-from tkinter import messagebox, simpledialog
+from tkinter import messagebox, simpledialog, ttk
 import sqlite3
+import datetime
+from datetime import datetime
+import os
 
 class HouseholdAccountBook:
-    def __init__(self, db_name):
-        self.db_name = db_name
+  def __init__(self, db_name):
+    self.db_name = db_name
 
-        # テーブルを作成する
-        self.create_table()
+    # テーブルを作成する
+    self.create_table()
 
-    def create_table(self):
-        try:
-            connection = sqlite3.connect(self.db_name)
-            cursor = connection.cursor()
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                type TEXT NOT NULL,
-                amount REAL NOT NULL,
-                description TEXT,
-                category TEXT
-            )
-            ''')
-            connection.commit()
-            cursor.close()
-            connection.close()
-        except sqlite3.Error as e:
-            print(f"Error creating table: {e}")
+  def create_table(self):
+    try:
+      connection = sqlite3.connect(self.db_name)
+      cursor = connection.cursor()
+      cursor.execute('''
+      CREATE TABLE IF NOT EXISTS records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        type TEXT NOT NULL,
+        amount REAL NOT NULL,
+        description TEXT,
+        category TEXT,
+        date TEXT NOT NULL
+      )
+      ''')
+      connection.commit()
+      cursor.close()
+      connection.close()
+    except sqlite3.Error as e:
+      print(f"Error creating table: {e}")
 
-    def add_record(self, record_type, amount, description, category):
-        try:
-            connection = sqlite3.connect(self.db_name)
-            cursor = connection.cursor()
-            query = "INSERT INTO records (type, amount, description, category) VALUES (?, ?, ?, ?)"
-            cursor.execute(query, (record_type, amount, description, category))
-            connection.commit()
-            cursor.close()
-            connection.close()
-        except sqlite3.Error as e:
-            print(f"Error: {e}")
+  def add_record(self, record_type, amount, description, category, date):
+    try:
+      connection = sqlite3.connect(self.db_name)
+      cursor = connection.cursor()
+      query = "INSERT INTO records (type, amount, description, category, date) VALUES (?, ?, ?, ?, ?)"
+      cursor.execute(query, (record_type, amount, description, category, date))
+      connection.commit()
+      cursor.close()
+      connection.close()
+    except sqlite3.Error as e:
+      print(f"Error: {e}")
 
-    def get_report(self):
-        report = {'income': [], 'expense': [], 'total_income': 0, 'total_expense': 0}
-        try:
-            connection = sqlite3.connect(self.db_name)
-            cursor = connection.cursor()
-            cursor.execute("SELECT * FROM records")
-            records = cursor.fetchall()
+  def get_report(self):
+    report = {'records': [], 'total_income': 0, 'total_expense': 0}
+    try:
+      connection = sqlite3.connect(self.db_name)
+      cursor = connection.cursor()
+      cursor.execute("SELECT * FROM records")
+      records = cursor.fetchall()
 
-            for record in records:
-                if record[1] == 'income':  # 1は'type'のインデックス
-                    report['income'].append({'description': record[3], 'category': record[4], 'amount': record[2]})
-                    report['total_income'] += record[2]
-                else:
-                    report['expense'].append({'description': record[3], 'category': record[4], 'amount': record[2]})
-                    report['total_expense'] += record[2]
+      for record in records:
+        # レコードの長さを確認し、適切なデータを追加
+        if len(record) == 6:
+          report['records'].append({
+            'type': record[1],
+            'amount': record[2],
+            'description': record[3],
+            'category': record[4],
+            'date': record[5]  # 日付を追加
+          })
+          if record[1] == '収入':
+            report['total_income'] += record[2]
+          else:
+            report['total_expense'] += record[2]
+        else:
+          print(f"Unexpected record format: {record}")
 
-            cursor.close()
-            connection.close()
-        except sqlite3.Error as e:
-            print(f"Error: {e}")
+      cursor.close()
+      connection.close()
+    except sqlite3.Error as e:
+      print(f"Error: {e}")
 
-        return report
+    return report
 
 class App:
-    def __init__(self, root, db_name):
-        self.root = root
-        self.root.title("家計簿ツール")
-        self.account_book = HouseholdAccountBook(db_name)
+  def __init__(self, root, db_name):
+    self.root = root
+    self.root.title("家計簿ツール")
+    self.account_book = HouseholdAccountBook(db_name)
 
-        self.income_button = tk.Button(root, text="収入を追加", command=self.add_income)
-        self.income_button.pack(pady=10)
+    button_frame = tk.Frame(self.root)
+    button_frame.pack(pady=10)
 
-        self.expense_button = tk.Button(root, text="支出を追加", command=self.add_expense)
-        self.expense_button.pack(pady=10)
+    tk.Button(button_frame, text="収入の追加", command=self.add_income).pack(side=tk.LEFT)
+    tk.Button(button_frame, text="支出の追加", command=self.add_expense).pack(side=tk.LEFT)
+    tk.Button(button_frame, text="レポートを表示", command=self.show_report).pack(side=tk.LEFT)
+    tk.Button(button_frame, text="終了", command=self.quit).pack(side=tk.LEFT)
 
-        self.report_button = tk.Button(root, text="レポートを見る", command=self.show_report)
-        self.report_button.pack(pady=10)
+  def add_income(self):
+    amount = simpledialog.askfloat("収入の金額", "収入の金額を入力してください:")
+    if amount is not None:
+      description = simpledialog.askstring("収入の説明", "収入の説明を入力してください:")
+      if description:
+        category = simpledialog.askstring("収入カテゴリ", "収入のカテゴリを入力してください:")
+        if category:
+          date = simpledialog.askstring("日付", "日付を入力してください (YYYY-MM-DD):", initialvalue=datetime.now().strftime("%Y-%m-%d"))
+          if date:
+            self.account_book.add_record('収入', amount, description, category, date)
+            messagebox.showinfo("成功", "収入が追加されました。")
 
-        self.quit_button = tk.Button(root, text="終了", command=root.quit)
-        self.quit_button.pack(pady=10)
+  def add_expense(self):
+    amount = simpledialog.askfloat("支出の金額", "支出の金額を入力してください:")
+    if amount is not None:
+      description = simpledialog.askstring("支出の説明", "支出の説明を入力してください:")
+      if description:
+        category = simpledialog.askstring("支出カテゴリ", "支出のカテゴリを入力してください:")
+        if category:
+          date = simpledialog.askstring("日付", "日付を入力してください (YYYY-MM-DD):", initialvalue=datetime.now().strftime("%Y-%m-%d"))
+          if date:
+            self.account_book.add_record('支出', amount, description, category, date)
+            messagebox.showinfo("成功", "支出が追加されました。")
 
-    def add_income(self):
-        amount = simpledialog.askfloat("収入の金額", "収入の金額を入力してください:")
-        if amount is not None:
-            description = simpledialog.askstring("収入の説明", "収入の説明を入力してください:")
-            if description:
-                category = simpledialog.askstring("収入カテゴリ", "収入のカテゴリを入力してください:")
-                if category:
-                    self.account_book.add_record('income', amount, description, category)
-                    messagebox.showinfo("成功", "収入が追加されました。")
+  def show_report(self):
+    report_window = tk.Toplevel(self.root)  # 新しいウィンドウを作成
+    report_window.title("家計簿レポート")
 
-    def add_expense(self):
-        amount = simpledialog.askfloat("支出の金額", "支出の金額を入力してください:")
-        if amount is not None:
-            description = simpledialog.askstring("支出の説明", "支出の説明を入力してください:")
-            if description:
-                category = simpledialog.askstring("支出カテゴリ", "支出のカテゴリを入力してください:")
-                if category:
-                    self.account_book.add_record('expense', amount, description, category)
-                    messagebox.showinfo("成功", "支出が追加されました。")
+    # Treeviewの作成
+    tree = ttk.Treeview(report_window, columns=("type", "amount", "description", "category", "date", "balance"), show='headings')
+    tree.heading("type", text="タイプ")
+    tree.heading("amount", text="金額")
+    tree.heading("description", text="説明")
+    tree.heading("category", text="カテゴリ")
+    tree.heading("date", text="日付")
+    tree.heading("balance", text="残高")
 
-    def show_report(self):
-        report = self.account_book.get_report()
-        report_text = "=== 家計簿レポート ===\n\n"
-        report_text += "収入:\n"
-        for income in report['income']:
-            report_text += f"- {income['description']} (カテゴリ: {income['category']}): ¥{income['amount']}\n"
+    # 各カラムの幅を設定
+    tree.column("type", width=80)
+    tree.column("amount", width=80)
+    tree.column("description", width=200)
+    tree.column("category", width=80)
+    tree.column("date", width=100)
+    tree.column("balance", width=80)
 
-        report_text += "\n支出:\n"
-        for expense in report['expense']:
-            report_text += f"- {expense['description']} (カテゴリ: {expense['category']}): ¥{expense['amount']}\n"
+    # データ取得
+    report = self.account_book.get_report()
+        
+    current_balance = 0  # 残高を保持する変数
+    for record in report['records']:
+      current_balance += record['amount'] if record['type'] == '収入' else -record['amount']
+      tree.insert("", "end", values=(record['type'], record['amount'], record['description'], record['category'], record['date'], current_balance))
 
-        report_text += f"\n合計収入: ¥{report['total_income']}\n"
-        report_text += f"合計支出: ¥{report['total_expense']}\n"
-        report_text += f"残高: ¥{report['total_income'] - report['total_expense']}\n"
 
-        messagebox.showinfo("家計簿レポート", report_text)
+    tree.pack(expand=True, fill='both')
+
+    # 合計金額を表示
+    total_frame = tk.Frame(report_window)
+    total_frame.pack(pady=10)
+    total_income_label = tk.Label(total_frame, text=f"合計収入: ¥{report['total_income']}")
+    total_income_label.pack()
+
+    total_expense_label = tk.Label(total_frame, text=f"合計支出: ¥{report['total_expense']}")
+    total_expense_label.pack()
+
+    balance_label = tk.Label(total_frame, text=f"最終残高: ¥{report['total_income'] - report['total_expense']}")
+    balance_label.pack()
+
+  def quit(self):
+    self.root.quit()
 
 if __name__ == "__main__":
-    root = tk.Tk()
+  root = tk.Tk()
 
-    # データベースファイル名
-    db_name = 'household_budget.db'
+  # データベースファイル名
+  db_name = 'household_budget.db'
 
-    app = App(root, db_name)
-    root.mainloop()
+  # データベースファイルが存在する場合は削除
+  if os.path.exists(db_name):
+    os.remove(db_name)
+
+  app = App(root, db_name)
+  root.mainloop()
