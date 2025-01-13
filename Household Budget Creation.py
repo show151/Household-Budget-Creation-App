@@ -30,12 +30,12 @@ class HouseholdAccountBook:
       records = cursor.fetchall()
 
       for record in records:
-        if record['type'] == 'income':
+        if record['type'] == 'income': # type: ignore
           report['income'].append(record)
-          report['total_income'] += record['amount']
+          report['total_income'] += record['amount'] # type: ignore
         else:
           report['expense'].append(record)
-          report['total_expense'] += record['amount']
+          report['total_expense'] += record['amount'] # type: ignore
 
       cursor.close()
       connection.close()
