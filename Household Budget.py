@@ -119,7 +119,7 @@ class App:
         category = self.select_category(record_type)
         if category is not None:
           date_str = simpledialog.askstring(
-              "日付", "日付を入力してください (YYYY/MM/DD):", initialvalue=datetime.now().strftime("%Y/%m/%d"))
+              "日付", "日付を入力してください (YYYY/MM/DD):", initialvalue=datetime.now().strftime("%Y-%m-%d"))
           if date_str is not None:
             if self.validate_date(date_str):
               self.account_book.add_record(
@@ -128,7 +128,7 @@ class App:
               messagebox.showinfo("成功", f"{record_type}が追加されました。")
             else:
               messagebox.showerror(
-                  "エラー", "日付の形式が正しくありません。YYYY/MM/DD形式で入力してください。")
+                  "エラー", "日付の形式が正しくありません。YYYY-MM-DD形式で入力してください。")
           else:
             messagebox.showinfo("キャンセル", "入力がキャンセルされました。")
         else:
@@ -166,7 +166,7 @@ class App:
   def validate_date(self, date_str):
     """ 日付が正しい形式（YYYY/MM/DD）であるか検証 """
     try:
-      datetime.strptime(date_str, "%Y/%m/%d")
+      datetime.strptime(date_str, "%Y-%m-%d")
       return True
     except ValueError:
       return False
