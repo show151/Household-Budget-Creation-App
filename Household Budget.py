@@ -42,6 +42,33 @@ class HouseholdAccountBook:
       cursor.close()
       connection.close()
 
+  def update_record(self, record_type, amount, description, category, date):
+    try:
+      connection = sqlite3.connect(self.db_name)
+      cursor = connection.cursor()
+      query = "UPDATE records SET type = ?, amount = ?, description = ?, category = ?, date = ? WHERE id = ?"
+      cursor.execute(query, (record_type, amount, description, category, date, record_id))
+      connection.commit()
+    except sqlite3.Error as e:
+      print(f"Error: {e}")
+    finally:
+      cursor.close()
+      connection.close()
+
+  def delete_record(self, record_id):
+    try:
+      connection = sqlite3.connect(self.db_name)
+      cursor = connection.cursor()
+      query = "DELETE FROM records WHERE id = ?"
+      cursor.execute(query, (record_id,))
+      connection.commit()
+    except sqlite3.Error as e:
+      print(f"Error: {e}")
+    finally:
+      cursor.close()
+      connection.close()
+
+
   def get_report(self, month=None, year=None):
     report = {'records': [], 'total_income': 0, 'total_expense': 0}
     try:
@@ -59,6 +86,7 @@ class HouseholdAccountBook:
       for record in records:
         if len(record) == 6:
           report['records'].append({
+              'id': record[0],
               'type': record[1],
               'amount': record[2],
               'description': record[3],
@@ -144,8 +172,7 @@ class App:
       category_window = tk.Toplevel(self.root)
       category_window.title(f"{record_type}カテゴリを選択")
 
-      tk.Label(category_window,
-        text=f"{record_type}のカテゴリを選択してください:").pack(pady=10)
+      tk.Label(category_window, text=f"{record_type}のカテゴリを選択してください:").pack(pady=10)
 
       selected_category = tk.StringVar(value=self.categories[0])
 
@@ -239,6 +266,15 @@ class App:
         record['type'], record['amount'], record['description'], record['category'], record['date']))
 
     tree.pack(expand=True, fill='both')
+
+    button_frame = tk.Frame(self.tree_frame)
+    button_frame.pack(pady=10)
+
+    edit_button = tk.Button(button_frame, text="編集", command=lambda:self.edit_record(tree))
+    edit_button.pack(side=tk.LEFT, padx=5)
+
+    delete_button = tk.Button(button_frame, text="削除", command=lambda: self.delete_record(tree))
+    delete_button.pack(side=tk.LEFT, padx=5)
 
     total_frame = tk.Frame(self.tree_frame)
     total_frame.pack(pady=10)
